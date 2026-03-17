@@ -39,7 +39,6 @@ music-card {
 
 .header {
     display: flex;
-    justify-content: space-between;
     align-items: center;
     padding: 10px 28px;
     background-color: #000;
@@ -48,9 +47,15 @@ music-card {
     border-bottom: 1px solid #282828;
 }
 
+.header-left {
+    display: flex;
+    align-items: center;
+}
+
 .header-right {
     display: flex;
     align-items: center;
+    margin-left: auto;
 }
 
 .logo a {
@@ -73,11 +78,14 @@ music-card {
     margin: 0;
 }
 
-.search-bar {
-    flex-grow: 1;
-    max-width: 360px;
+.search-container {
     position: relative;
-    margin: 0 20px;
+    margin-left: 40px;
+}
+
+.search-bar {
+    width: 360px;
+    position: relative;
 }
 
 .search-bar .fa-search {
@@ -100,9 +108,9 @@ music-card {
 
 .search-results-container {
     position: absolute;
-    top: 60px; /* Adjust based on header height */
-    left: 315px;
-    width: 360px;
+    top: calc(100% + 10px);
+    left: 0;
+    width: 100%;
     background-color: #282828;
     border-radius: 8px;
     overflow-y: auto;
