@@ -705,3 +705,6 @@ input[type="range"] {
         opacity: 0;
     }
 }
+.version{
+    font-size:3px
+}
