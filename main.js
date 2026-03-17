@@ -1,4 +1,3 @@
-
 // --- Data Array ---
 const songData = [
     { image: "https://i.scdn.co/image/ab67616d0000b27337488c02c8a72693f5f63813", title: "Best of Me", description: "NEFFEX", songFile: "mp3/NEFFEX - Best of Me 🤘 [Copyright Free] No.23(MP3_160K).mp3" },
@@ -65,6 +64,7 @@ let isShuffled = false;
 let songQueue = [...songData.keys()].filter(i => songData[i].songFile);
 let isAnimating = false; // Animation lock
 let replayState = 0; // 0: no-repeat, 1: repeat-queue, 2: repeat-one
+let searchDebounce = null;
 
 
 // --- DOM Elements ---
@@ -488,41 +488,67 @@ function formatTime(seconds) {
 }
 
 // --- Search Function ---
-function handleSearch() {
-    const searchTerm = searchInput.value.toLowerCase();
+function advancedSearch() {
+    const searchTerm = searchInput.value.toLowerCase().trim();
     searchResultsContainer.innerHTML = '';
 
-    if (searchTerm) {
-        const filteredSongs = songData.filter(song => song.title && song.description && (song.title.toLowerCase().includes(searchTerm) || song.description.toLowerCase().includes(searchTerm)));
+    if (!searchTerm) {
+        searchResultsContainer.style.display = 'none';
+        return;
+    }
 
-        if (filteredSongs.length > 0) {
-            searchResultsContainer.style.display = 'block';
-            filteredSongs.forEach(song => {
-                const songIndex = songData.indexOf(song);
-                const resultItem = document.createElement('div');
-                resultItem.classList.add('search-result-item');
-                resultItem.dataset.index = songIndex;
-                resultItem.innerHTML = `
-                    <img src="${song.image || 'https://storage.googleapis.com/gemini-codelab/placeholder.png'}" alt="${song.title}">
-                    <div class="search-result-details">
-                        <div class="search-result-title">${song.title}</div>
-                        <div class="search-result-artist">${song.description}</div>
-                    </div>
-                `;
-                resultItem.addEventListener('click', () => {
-                    togglePlayPause(songIndex);
-                    searchResultsContainer.style.display = 'none';
-                    searchInput.value = '';
-                });
-                searchResultsContainer.appendChild(resultItem);
+    const results = songData.map((song, index) => {
+        const title = song.title ? song.title.toLowerCase() : '';
+        const artist = song.description ? song.description.toLowerCase() : '';
+        const titleIndex = title.indexOf(searchTerm);
+        const artistIndex = artist.indexOf(searchTerm);
+
+        let score = 0;
+        if (titleIndex === 0) score = 4; // Exact title start match
+        else if (artistIndex === 0) score = 3; // Exact artist start match
+        else if (titleIndex > 0) score = 2; // Title contains match
+        else if (artistIndex > 0) score = 1; // Artist contains match
+
+        // Boost score for earlier appearance
+        if (titleIndex > 0) score += 1 / (titleIndex + 1);
+        if (artistIndex > 0) score += 1 / (artistIndex + 2); // Artist matches are slightly less important
+
+        return { song, index, score };
+    })
+    .filter(result => result.score > 0)
+    .sort((a, b) => b.score - a.score);
+
+    if (results.length > 0) {
+        searchResultsContainer.style.display = 'block';
+        const fragment = document.createDocumentFragment();
+        results.forEach(({ song, index }) => {
+            const resultItem = document.createElement('div');
+            resultItem.classList.add('search-result-item');
+            resultItem.dataset.index = index;
+
+            const highlightedTitle = song.title.replace(new RegExp(searchTerm, 'gi'), `<span class="search-result-highlight">$&</span>`);
+            const highlightedArtist = song.description.replace(new RegExp(searchTerm, 'gi'), `<span class="search-result-highlight">$&</span>`);
+
+            resultItem.innerHTML = `
+                <img src="${song.image || 'https://storage.googleapis.com/gemini-codelab/placeholder.png'}" alt="${song.title}">
+                <div class="search-result-details">
+                    <div class="search-result-title">${highlightedTitle}</div>
+                    <div class="search-result-artist">${highlightedArtist}</div>
+                </div>
+            `;
+            resultItem.addEventListener('click', () => {
+                togglePlayPause(index);
+                searchResultsContainer.style.display = 'none';
+                searchInput.value = '';
             });
-        } else {
-            searchResultsContainer.style.display = 'none';
-        }
+            fragment.appendChild(resultItem);
+        });
+        searchResultsContainer.appendChild(fragment);
     } else {
         searchResultsContainer.style.display = 'none';
     }
 }
+
 
 function updateReplayButtonState() {
     // Ensure the icon is always there, creating it if it doesn't exist.
@@ -564,7 +590,10 @@ playerPlayBtn.addEventListener('click', () => {
 });
 nextBtn.addEventListener('click', playNext);
 prevBtn.addEventListener('click', playPrev);
-searchInput.addEventListener('input', handleSearch);
+searchInput.addEventListener('input', () => {
+    clearTimeout(searchDebounce);
+    searchDebounce = setTimeout(advancedSearch, 250); // Debounce search
+});
 
 replayBtn.addEventListener('click', () => {
     replayState = (replayState + 1) % 3;
